@@ -2,7 +2,7 @@
 #   fly volumes create league_data --size 1 --region <region>
 #   fly secrets set INGEST_TOKEN=$(openssl rand -hex 32)
 #   fly deploy
-app = "league-dashboard"
+app = "evanlan"
 primary_region = "iad"
 
 [build]

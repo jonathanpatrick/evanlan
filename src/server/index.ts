@@ -3,6 +3,7 @@ import Fastify from "fastify";
 import { existsSync } from "node:fs";
 import { env } from "./env.js";
 import { adminRoutes } from "./routes/admin.js";
+import { arenaRoutes } from "./routes/arena.js";
 import { championRoutes } from "./routes/champions.js";
 import { gameRoutes } from "./routes/games.js";
 import { ingestRoutes } from "./routes/ingest.js";
@@ -21,6 +22,7 @@ await app.register(adminRoutes);
 await app.register(playerRoutes);
 await app.register(championRoutes);
 await app.register(gameRoutes);
+await app.register(arenaRoutes);
 
 app.get("/healthz", async () => ({ ok: true }));
 

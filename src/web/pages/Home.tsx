@@ -1,70 +1,130 @@
 import { Link } from "react-router-dom";
-import { api } from "../api.js";
+import { api, type ChampionSummary, type PlayerSummary } from "../api.js";
 import { fmt } from "../format.js";
 import { useAsync } from "../hooks.js";
 
+// Floor for "ranked" lists. One 100%-WR game would otherwise dominate; with a
+// small friend group two games is a reasonable signal floor.
+const MIN_GAMES = 2;
+
 export function Home() {
-  const games = useAsync(() => api.games(), []);
   const players = useAsync(() => api.players(), []);
   const champions = useAsync(() => api.champions(), []);
 
+  const topPlayers = rankByWinRate(players.data?.players ?? []);
+  const topChampions = rankByWinRate(champions.data?.champions ?? []);
+
   return (
     <>
-      <h1>League Dashboard</h1>
-      <p className="muted">
-        Aggregate custom game stats. POST a game payload to
-        <code> /games </code> with the <code>X-Ingest-Token</code> header.
-      </p>
+      <h1>Biggest Peepees</h1>
+      <div className="card-grid">
+        <section className="card">
+          <h2>Top 5 Players · Win Rate</h2>
+          <p className="muted card-subtitle">Minimum {MIN_GAMES} games</p>
+          {players.loading && <p className="muted">Loading…</p>}
+          {players.error && (
+            <p className="loss">Error: {players.error.message}</p>
+          )}
+          {players.data && topPlayers.length === 0 && (
+            <p className="muted">Not enough games yet.</p>
+          )}
+          {topPlayers.length > 0 && <PlayerTable rows={topPlayers} />}
+        </section>
 
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="label">Games ingested</div>
-          <div className="value">{fmt.int(games.data?.games.length ?? 0)}</div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Players</div>
-          <div className="value">
-            {fmt.int(players.data?.players.length ?? 0)}
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="label">Champions played</div>
-          <div className="value">
-            {fmt.int(champions.data?.champions.length ?? 0)}
-          </div>
-        </div>
+        <section className="card">
+          <h2>Top 5 Champions · Win Rate</h2>
+          <p className="muted card-subtitle">Minimum {MIN_GAMES} games</p>
+          {champions.loading && <p className="muted">Loading…</p>}
+          {champions.error && (
+            <p className="loss">Error: {champions.error.message}</p>
+          )}
+          {champions.data && topChampions.length === 0 && (
+            <p className="muted">Not enough games yet.</p>
+          )}
+          {topChampions.length > 0 && <ChampionTable rows={topChampions} />}
+        </section>
       </div>
-
-      <h2>Recent games</h2>
-      {games.loading && <p className="muted">Loading…</p>}
-      {games.error && <p className="loss">Error: {games.error.message}</p>}
-      {games.data && games.data.games.length === 0 && (
-        <p className="muted">No games yet. POST one to <code>/games</code>.</p>
-      )}
-      {games.data && games.data.games.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Match</th>
-              <th>Played</th>
-              <th>Duration</th>
-              <th>Mode</th>
-              <th>Patch</th>
-            </tr>
-          </thead>
-          <tbody>
-            {games.data.games.map((g) => (
-              <tr key={g.match_id}>
-                <td><Link to={`/games/${encodeURIComponent(g.match_id)}`}>{g.match_id}</Link></td>
-                <td>{fmt.date(g.game_creation ?? g.ingested_at)}</td>
-                <td>{fmt.duration(g.game_duration)}</td>
-                <td>{g.game_mode ?? "—"}</td>
-                <td>{g.game_version ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
     </>
+  );
+}
+
+function rankByWinRate<T extends { games: number; wins: number }>(rows: T[]): T[] {
+  return rows
+    .filter((r) => r.games >= MIN_GAMES)
+    .slice()
+    .sort((a, b) => {
+      const wa = a.wins / a.games;
+      const wb = b.wins / b.games;
+      if (wa !== wb) return wb - wa;
+      return b.games - a.games;
+    })
+    .slice(0, 5);
+}
+
+function PlayerTable({ rows }: { rows: PlayerSummary[] }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th className="numeric">Win %</th>
+          <th className="numeric">W / L</th>
+          <th className="numeric">KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((p) => (
+          <tr key={p.player_key}>
+            <td>
+              <Link
+                to={`/players/${encodeURIComponent(p.puuid ?? p.display_name)}`}
+              >
+                {p.display_name}
+              </Link>
+            </td>
+            <td className="numeric">{fmt.pct(p.wins, p.games)}</td>
+            <td className="numeric">
+              <span className="win">{fmt.int(p.wins)}</span>
+              {" / "}
+              <span className="loss">{fmt.int(p.losses)}</span>
+            </td>
+            <td className="numeric">{fmt.kda(p.kills, p.deaths, p.assists)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function ChampionTable({ rows }: { rows: ChampionSummary[] }) {
+  return (
+    <table>
+      <thead>
+        <tr>
+          <th>Champion</th>
+          <th className="numeric">Win %</th>
+          <th className="numeric">W / L</th>
+          <th className="numeric">KDA</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((c) => (
+          <tr key={c.champion_name}>
+            <td>
+              <Link to={`/champions/${encodeURIComponent(c.champion_name)}`}>
+                {c.champion_name}
+              </Link>
+            </td>
+            <td className="numeric">{fmt.pct(c.wins, c.games)}</td>
+            <td className="numeric">
+              <span className="win">{fmt.int(c.wins)}</span>
+              {" / "}
+              <span className="loss">{fmt.int(c.losses)}</span>
+            </td>
+            <td className="numeric">{fmt.kda(c.kills, c.deaths, c.assists)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

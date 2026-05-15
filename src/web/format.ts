@@ -1,3 +1,24 @@
+// Maps Riot's internal mode codes to human-readable labels. Riot ships
+// codenames (CLASSIC, CHERRY, KIWI, etc.); the dashboard should never show
+// these raw. Add new entries as we observe them.
+export function gameModeLabel(code: string | null | undefined): string {
+  if (!code) return "Unknown";
+  switch (code.toUpperCase()) {
+    case "CLASSIC":      return "Summoner's Rift";
+    case "ARAM":         return "ARAM";
+    case "KIWI":         return "ARAM Mayhem"; // confirmed by Howling Abyss + user
+    case "CHERRY":       return "Arena";
+    case "URF":          return "URF";
+    case "ARURF":        return "ARURF";
+    case "ONEFORALL":    return "One For All";
+    case "NEXUSBLITZ":   return "Nexus Blitz";
+    case "PRACTICETOOL": return "Practice Tool";
+    case "TUTORIAL":     return "Tutorial";
+    case "BRAWL":        return "Brawl";
+    default:             return code;
+  }
+}
+
 export const fmt = {
   int: (n: number | null | undefined) =>
     n == null ? "—" : Math.round(n).toLocaleString(),

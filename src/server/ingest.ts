@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { db } from "./db.js";
 
 // Normalized shape we persist. Mirrors Riot's match-v5 DTO closely so we can
@@ -205,23 +204,17 @@ function parseLiveClient(root: Record<string, any>): ParsedGame {
     };
   });
 
-  // Stable matchId derived entirely from JSON content (no wall-clock), so
-  // re-POSTing the same capture later still dedupes. Sorted "name-champion"
-  // pairs uniquely identify the roster; gameDuration disambiguates the rare
-  // back-to-back-with-identical-picks case.
-  const rosterKey = allPlayers
-    .map((p: any) => {
-      const name = str(p.riotIdGameName) ?? str(p.summonerName) ?? "?";
-      const champ = str(p.championName) ?? "?";
-      return `${name}-${champ}`;
-    })
-    .sort()
-    .join(",");
-  const hash = createHash("sha256")
-    .update(`${Math.round(gameTimeSec)}|${rosterKey}`)
-    .digest("hex")
-    .slice(0, 12);
-  const matchId = `LIVE_${hash}`;
+  // Human-readable matchId: <MODE>_<YYYY-MM-DD>_<HH-MM> in UTC. The minute
+  // granularity gives us tolerance for re-POSTs of the same game taken seconds
+  // apart (they round to the same minute → same matchId → dedupe). Re-posting
+  // a stored capture hours later will produce a different matchId, which is
+  // fine for our live-capture-once-per-game flow.
+  const gameMode = str(gameData.gameMode) ?? "UNKNOWN";
+  const d = new Date(gameStartMs);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const matchId = `${gameMode}_${d.getUTCFullYear()}-${pad(
+    d.getUTCMonth() + 1
+  )}-${pad(d.getUTCDate())}_${pad(d.getUTCHours())}-${pad(d.getUTCMinutes())}`;
 
   return {
     matchId,
