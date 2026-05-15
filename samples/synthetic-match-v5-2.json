@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "matchId": "SYNTH_0002",
+    "participants": [
+      "puuid-aatrox", "puuid-yasuo", "puuid-ahri", "puuid-jinx", "puuid-leona",
+      "puuid-darius", "puuid-zed", "puuid-lux", "puuid-kaisa", "puuid-thresh"
+    ]
+  },
+  "info": {
+    "gameCreation": 1731700000000,
+    "gameDuration": 2103,
+    "gameMode": "CLASSIC",
+    "gameType": "CUSTOM_GAME",
+    "gameVersion": "14.22.1",
+    "queueId": 0,
+    "participants": [
+      { "puuid": "puuid-aatrox", "riotIdGameName": "Alice", "riotIdTagline": "NA1", "summonerName": "Alice", "teamId": 100, "championId": 122, "championName": "Darius", "teamPosition": "TOP",     "win": false, "kills": 4,  "deaths": 6, "assists": 2,  "totalDamageDealtToChampions": 18200, "totalDamageTaken": 31000, "goldEarned": 11800, "totalMinionsKilled": 170, "neutralMinionsKilled": 10, "visionScore": 15 },
+      { "puuid": "puuid-yasuo",  "riotIdGameName": "Bob",   "riotIdTagline": "NA1", "summonerName": "Bob",   "teamId": 100, "championId": 157, "championName": "Yasuo",  "teamPosition": "MIDDLE",  "win": false, "kills": 8,  "deaths": 5, "assists": 3,  "totalDamageDealtToChampions": 24100, "totalDamageTaken": 19800, "goldEarned": 13200, "totalMinionsKilled": 198, "neutralMinionsKilled": 6,  "visionScore": 14 },
+      { "puuid": "puuid-ahri",   "riotIdGameName": "Carol", "riotIdTagline": "NA1", "summonerName": "Carol", "teamId": 100, "championId": 99,  "championName": "Lux",    "teamPosition": "MIDDLE",  "win": false, "kills": 6,  "deaths": 4, "assists": 8,  "totalDamageDealtToChampions": 22800, "totalDamageTaken": 16400, "goldEarned": 12900, "totalMinionsKilled": 180, "neutralMinionsKilled": 4,  "visionScore": 17 },
+      { "puuid": "puuid-jinx",   "riotIdGameName": "Dave",  "riotIdTagline": "NA1", "summonerName": "Dave",  "teamId": 100, "championId": 222, "championName": "Jinx",   "teamPosition": "BOTTOM",  "win": false, "kills": 7,  "deaths": 6, "assists": 4,  "totalDamageDealtToChampions": 27400, "totalDamageTaken": 18900, "goldEarned": 13500, "totalMinionsKilled": 224, "neutralMinionsKilled": 2,  "visionScore": 16 },
+      { "puuid": "puuid-leona",  "riotIdGameName": "Eve",   "riotIdTagline": "NA1", "summonerName": "Eve",   "teamId": 100, "championId": 412, "championName": "Thresh", "teamPosition": "UTILITY", "win": false, "kills": 1,  "deaths": 7, "assists": 11, "totalDamageDealtToChampions": 7600,  "totalDamageTaken": 21400, "goldEarned": 8200,  "totalMinionsKilled": 24,  "neutralMinionsKilled": 0,  "visionScore": 44 },
+      { "puuid": "puuid-darius", "riotIdGameName": "Frank", "riotIdTagline": "NA1", "summonerName": "Frank", "teamId": 200, "championId": 266, "championName": "Aatrox", "teamPosition": "TOP",     "win": true,  "kills": 9,  "deaths": 3, "assists": 6,  "totalDamageDealtToChampions": 26100, "totalDamageTaken": 24800, "goldEarned": 14700, "totalMinionsKilled": 192, "neutralMinionsKilled": 14, "visionScore": 19 },
+      { "puuid": "puuid-zed",    "riotIdGameName": "Grace", "riotIdTagline": "NA1", "summonerName": "Grace", "teamId": 200, "championId": 238, "championName": "Zed",    "teamPosition": "MIDDLE",  "win": true,  "kills": 11, "deaths": 3, "assists": 5,  "totalDamageDealtToChampions": 28900, "totalDamageTaken": 14200, "goldEarned": 15300, "totalMinionsKilled": 208, "neutralMinionsKilled": 8,  "visionScore": 17 },
+      { "puuid": "puuid-lux",    "riotIdGameName": "Heidi", "riotIdTagline": "NA1", "summonerName": "Heidi", "teamId": 200, "championId": 103, "championName": "Ahri",   "teamPosition": "JUNGLE",  "win": true,  "kills": 6,  "deaths": 2, "assists": 12, "totalDamageDealtToChampions": 21300, "totalDamageTaken": 13900, "goldEarned": 12700, "totalMinionsKilled": 36,  "neutralMinionsKilled": 102, "visionScore": 24 },
+      { "puuid": "puuid-kaisa",  "riotIdGameName": "Ivan",  "riotIdTagline": "NA1", "summonerName": "Ivan",  "teamId": 200, "championId": 145, "championName": "Kaisa",  "teamPosition": "BOTTOM",  "win": true,  "kills": 10, "deaths": 2, "assists": 6,  "totalDamageDealtToChampions": 30100, "totalDamageTaken": 15200, "goldEarned": 15800, "totalMinionsKilled": 234, "neutralMinionsKilled": 4,  "visionScore": 18 },
+      { "puuid": "puuid-thresh", "riotIdGameName": "Judy",  "riotIdTagline": "NA1", "summonerName": "Judy",  "teamId": 200, "championId": 89,  "championName": "Leona",  "teamPosition": "UTILITY", "win": true,  "kills": 3,  "deaths": 4, "assists": 19, "totalDamageDealtToChampions": 10200, "totalDamageTaken": 23700, "goldEarned": 9400,  "totalMinionsKilled": 26,  "neutralMinionsKilled": 0,  "visionScore": 56 }
+    ]
+  }
+}
