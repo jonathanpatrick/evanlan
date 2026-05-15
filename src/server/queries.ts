@@ -19,8 +19,31 @@ const ARENA_MODE = "CHERRY";
 const NON_ARENA_FILTER = `(g.game_mode IS NULL OR g.game_mode != '${ARENA_MODE}')`;
 const ARENA_FILTER = `g.game_mode = '${ARENA_MODE}'`;
 
+// "Known players" = anyone who appears in at least one non-Arena game. Arena
+// custom lobbies frequently pull in randos who aren't part of the LAN; we
+// only want the LAN players in Arena aggregations.
+const KNOWN_PLAYERS_SUBQUERY = `
+  SELECT DISTINCT COALESCE(
+    NULLIF(p2.puuid, ''),
+    NULLIF(p2.riot_id_game_name || '#' || COALESCE(p2.riot_id_tagline, ''), '#'),
+    p2.summoner_name
+  ) AS pk
+  FROM participants p2
+  JOIN games g2 ON g2.match_id = p2.match_id
+  WHERE g2.game_mode IS NULL OR g2.game_mode != '${ARENA_MODE}'
+`;
+
 type Scope = "non_arena" | "arena";
-const modeFilter = (scope: Scope) =>
+
+// Mode filter for queries that touch participants. Arena scope additionally
+// restricts to known players so randos don't leak into Arena aggregations.
+const participantModeFilter = (scope: Scope) =>
+  scope === "arena"
+    ? `${ARENA_FILTER} AND ${PLAYER_KEY} IN (${KNOWN_PLAYERS_SUBQUERY})`
+    : NON_ARENA_FILTER;
+
+// Game-level filter (no player constraint). Used for listing matches.
+const gameModeFilter = (scope: Scope) =>
   scope === "arena" ? ARENA_FILTER : NON_ARENA_FILTER;
 
 export type PlayerSummaryRow = {
@@ -63,7 +86,7 @@ export function listPlayers(scope: Scope = "non_arena"): PlayerSummaryRow[] {
         SUM(p.vision_score)                                 AS vision_score
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE ${PLAYER_KEY} IS NOT NULL AND ${modeFilter(scope)}
+      WHERE ${PLAYER_KEY} IS NOT NULL AND ${participantModeFilter(scope)}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       ORDER BY games DESC, wins DESC
     `
@@ -97,7 +120,7 @@ export function getPlayerSummary(
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
       WHERE (p.puuid = @id OR p.riot_id_game_name = @id OR p.summoner_name = @id)
-        AND ${modeFilter(scope)}
+        AND ${participantModeFilter(scope)}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       LIMIT 1
     `
@@ -127,7 +150,7 @@ export function getPlayerByChampion(
       JOIN games g ON g.match_id = p.match_id
       WHERE (p.puuid = @id OR p.riot_id_game_name = @id OR p.summoner_name = @id)
         AND p.champion_name IS NOT NULL
-        AND ${modeFilter(scope)}
+        AND ${participantModeFilter(scope)}
       GROUP BY p.champion_name
       ORDER BY games DESC, wins DESC
     `
@@ -165,7 +188,7 @@ export function listChampions(scope: Scope = "non_arena"): ChampionSummaryRow[] 
         SUM(p.total_minions_killed + p.neutral_minions_killed) AS cs
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE p.champion_name IS NOT NULL AND ${modeFilter(scope)}
+      WHERE p.champion_name IS NOT NULL AND ${participantModeFilter(scope)}
       GROUP BY p.champion_name
       ORDER BY games DESC, wins DESC
     `
@@ -193,7 +216,7 @@ export function getChampionSummary(
         SUM(p.total_minions_killed + p.neutral_minions_killed) AS cs
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE p.champion_name = @champion AND ${modeFilter(scope)}
+      WHERE p.champion_name = @champion AND ${participantModeFilter(scope)}
       GROUP BY p.champion_name
     `
     )
@@ -221,7 +244,7 @@ export function getChampionByPlayer(
       JOIN games g ON g.match_id = p.match_id
       WHERE p.champion_name = @champion
         AND ${PLAYER_KEY} IS NOT NULL
-        AND ${modeFilter(scope)}
+        AND ${participantModeFilter(scope)}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       ORDER BY games DESC, wins DESC
     `
@@ -275,7 +298,7 @@ export function listRecentGames(limit = 50, scope: Scope = "non_arena") {
       `
       SELECT match_id, game_creation, game_duration, game_mode, game_version, ingested_at
       FROM games g
-      WHERE ${modeFilter(scope)}
+      WHERE ${gameModeFilter(scope)}
       ORDER BY COALESCE(game_creation, ingested_at) DESC
       LIMIT ?
     `

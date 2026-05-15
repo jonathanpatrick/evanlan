@@ -19,6 +19,13 @@ export function gameModeLabel(code: string | null | undefined): string {
   }
 }
 
+// Numeric KDA used for sorting. Mirrors the convention League uses where
+// 0 deaths is treated as "perfect" (returns k+a directly).
+export function kdaValue(kills: number, deaths: number, assists: number): number {
+  if (deaths === 0) return kills + assists;
+  return (kills + assists) / deaths;
+}
+
 export const fmt = {
   int: (n: number | null | undefined) =>
     n == null ? "—" : Math.round(n).toLocaleString(),

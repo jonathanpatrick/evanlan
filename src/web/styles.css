@@ -167,3 +167,35 @@ h1 { margin-top: 0; }
 }
 .event-FirstBlood, .event-GameEnd { color: var(--accent); }
 .event-Multikill, .event-Ace { color: var(--accent); font-weight: 600; }
+
+.table-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0 0.5rem;
+}
+.table-controls input.filter {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  min-width: 14rem;
+  font-size: 0.9rem;
+}
+.table-controls input.filter::placeholder { color: var(--muted); }
+.table-controls .result-count {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+th.sortable:hover { color: var(--text); }
+th.sortable .sort-indicator {
+  margin-left: 0.25rem;
+  color: var(--accent);
+}

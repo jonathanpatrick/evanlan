@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { api, type ChampionSummary, type PlayerSummary } from "../api.js";
+import { KDA_TOOLTIP } from "../components.js";
 import { fmt } from "../format.js";
 import { useAsync } from "../hooks.js";
 
@@ -69,7 +70,7 @@ function PlayerTable({ rows }: { rows: PlayerSummary[] }) {
           <th>Player</th>
           <th className="numeric">Win %</th>
           <th className="numeric">W / L</th>
-          <th className="numeric">KDA</th>
+          <th className="numeric" title={KDA_TOOLTIP}>KDA</th>
         </tr>
       </thead>
       <tbody>
@@ -88,7 +89,7 @@ function PlayerTable({ rows }: { rows: PlayerSummary[] }) {
               {" / "}
               <span className="loss">{fmt.int(p.losses)}</span>
             </td>
-            <td className="numeric">{fmt.kda(p.kills, p.deaths, p.assists)}</td>
+            <td className="numeric" title={KDA_TOOLTIP}>{fmt.kda(p.kills, p.deaths, p.assists)}</td>
           </tr>
         ))}
       </tbody>
@@ -104,7 +105,7 @@ function ChampionTable({ rows }: { rows: ChampionSummary[] }) {
           <th>Champion</th>
           <th className="numeric">Win %</th>
           <th className="numeric">W / L</th>
-          <th className="numeric">KDA</th>
+          <th className="numeric" title={KDA_TOOLTIP}>KDA</th>
         </tr>
       </thead>
       <tbody>
@@ -121,7 +122,7 @@ function ChampionTable({ rows }: { rows: ChampionSummary[] }) {
               {" / "}
               <span className="loss">{fmt.int(c.losses)}</span>
             </td>
-            <td className="numeric">{fmt.kda(c.kills, c.deaths, c.assists)}</td>
+            <td className="numeric" title={KDA_TOOLTIP}>{fmt.kda(c.kills, c.deaths, c.assists)}</td>
           </tr>
         ))}
       </tbody>

@@ -7,6 +7,7 @@ import {
   type RawLivePayload,
   type RawLivePlayer,
 } from "../api.js";
+import { KDA_TOOLTIP } from "../components.js";
 import { fmt, gameModeLabel } from "../format.js";
 import { useAsync } from "../hooks.js";
 
@@ -74,7 +75,7 @@ export function Match() {
                   <th>Player</th>
                   <th>Champion</th>
                   <th className="numeric">Lvl</th>
-                  <th className="numeric">K / D / A</th>
+                  <th className="numeric" title={KDA_TOOLTIP}>K / D / A</th>
                   <th className="numeric">CS</th>
                   <th className="numeric">Vision</th>
                 </tr>
@@ -109,7 +110,7 @@ export function Match() {
                           )}
                         </td>
                         <td className="numeric">{rp?.level ?? "—"}</td>
-                        <td className="numeric">
+                        <td className="numeric" title={KDA_TOOLTIP}>
                           {fmt.kda(p.kills, p.deaths, p.assists)}
                         </td>
                         <td className="numeric">
