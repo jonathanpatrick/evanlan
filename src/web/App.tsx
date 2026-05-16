@@ -1,5 +1,5 @@
 import { Link, Route, Routes } from "react-router-dom";
-import { Arena } from "./pages/Arena.js";
+import { ModeFilterBar, ModeFilterProvider } from "./mode-filter.js";
 import { Champion } from "./pages/Champion.js";
 import { Champions } from "./pages/Champions.js";
 import { Home } from "./pages/Home.js";
@@ -9,15 +9,17 @@ import { Players } from "./pages/Players.js";
 
 export function App() {
   return (
-    <>
+    <ModeFilterProvider>
       <header className="nav">
         <div className="container">
           <Link to="/" className="brand">League Dashboard</Link>
           <Link to="/players">Players</Link>
           <Link to="/champions">Champions</Link>
-          <Link to="/arena">Arena</Link>
         </div>
       </header>
+      <div className="container">
+        <ModeFilterBar />
+      </div>
       <main className="container">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -26,9 +28,8 @@ export function App() {
           <Route path="/champions" element={<Champions />} />
           <Route path="/champions/:name" element={<Champion />} />
           <Route path="/matches/:id" element={<Match />} />
-          <Route path="/arena" element={<Arena />} />
         </Routes>
       </main>
-    </>
+    </ModeFilterProvider>
   );
 }

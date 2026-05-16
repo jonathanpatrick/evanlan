@@ -4,6 +4,7 @@ import { api, type PlayerByChampionRow } from "../api.js";
 import { KDA_TOOLTIP, SortableHeader, TableFilter } from "../components.js";
 import { fmt, kdaValue } from "../format.js";
 import { useAsync, useTable } from "../hooks.js";
+import { useSelectedModes } from "../mode-filter.js";
 
 const SORT_KEYS = {
   name: (r: PlayerByChampionRow) => (r.champion_name ?? "").toLowerCase(),
@@ -16,7 +17,11 @@ const SORT_KEYS = {
 
 export function Player() {
   const { id = "" } = useParams();
-  const { data, error, loading } = useAsync(() => api.player(id), [id]);
+  const modes = useSelectedModes();
+  const { data, error, loading } = useAsync(
+    () => api.player(id, modes),
+    [id, modes]
+  );
   const filterFields = useMemo(
     () => (r: PlayerByChampionRow) => [r.champion_name ?? ""],
     []

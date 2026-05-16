@@ -1,9 +1,15 @@
 import type { FastifyInstance } from "fastify";
-import { getMatch, getMatchRaw, listRecentGames } from "../queries.js";
+import {
+  getMatch,
+  getMatchRaw,
+  listAvailableModes,
+  listRecentGames,
+} from "../queries.js";
+import { parseModes } from "./util.js";
 
 export async function gameRoutes(app: FastifyInstance) {
-  app.get("/api/games", async () => {
-    return { games: listRecentGames() };
+  app.get<{ Querystring: { modes?: string } }>("/api/games", async (req) => {
+    return { games: listRecentGames(50, parseModes(req.query.modes)) };
   });
 
   app.get<{ Params: { id: string } }>("/api/games/:id", async (req, reply) => {
@@ -13,7 +19,6 @@ export async function gameRoutes(app: FastifyInstance) {
     return match;
   });
 
-  // Raw original payload for the match page to render extra detail.
   app.get<{ Params: { id: string } }>(
     "/api/games/:id/raw",
     async (req, reply) => {
@@ -23,4 +28,10 @@ export async function gameRoutes(app: FastifyInstance) {
       return raw;
     }
   );
+
+  // Distinct gameMode codes seen across the ingested games. Drives the global
+  // mode-filter checkboxes in the UI; the UI maps these to friendly labels.
+  app.get("/api/modes", async () => {
+    return { modes: listAvailableModes() };
+  });
 }

@@ -11,40 +11,32 @@ const PLAYER_KEY = `COALESCE(
 
 const PLAYER_DISPLAY = `COALESCE(p.riot_id_game_name, p.summoner_name, p.puuid)`;
 
-// Mode partitions. Arena ("CHERRY") needs separate aggregation — different
-// team semantics (2v2v2v2), no win/loss inference yet, and Summoner's Rift
-// stats like CS/vision don't translate. Everything that's not Arena lives in
-// the main aggregation; Arena lives in /api/arena/*.
-const ARENA_MODE = "CHERRY";
-const NON_ARENA_FILTER = `(g.game_mode IS NULL OR g.game_mode != '${ARENA_MODE}')`;
-const ARENA_FILTER = `g.game_mode = '${ARENA_MODE}'`;
-
-// "Known players" = anyone who appears in at least one non-Arena game. Arena
-// custom lobbies frequently pull in randos who aren't part of the LAN; we
-// only want the LAN players in Arena aggregations.
-const KNOWN_PLAYERS_SUBQUERY = `
-  SELECT DISTINCT COALESCE(
-    NULLIF(p2.puuid, ''),
-    NULLIF(p2.riot_id_game_name || '#' || COALESCE(p2.riot_id_tagline, ''), '#'),
-    p2.summoner_name
-  ) AS pk
-  FROM participants p2
-  JOIN games g2 ON g2.match_id = p2.match_id
-  WHERE g2.game_mode IS NULL OR g2.game_mode != '${ARENA_MODE}'
+// "Known players" = anyone who has at least one non-Arena game. Arena custom
+// lobbies frequently pull in randos who aren't part of the LAN. Applied to
+// every player/champion aggregation so leaderboards stay LAN-only regardless
+// of which game modes the user has selected in the filter.
+const KNOWN_PLAYERS_CTE = `
+  WITH known AS (
+    SELECT DISTINCT COALESCE(
+      NULLIF(p2.puuid, ''),
+      NULLIF(p2.riot_id_game_name || '#' || COALESCE(p2.riot_id_tagline, ''), '#'),
+      p2.summoner_name
+    ) AS pk
+    FROM participants p2
+    JOIN games g2 ON g2.match_id = p2.match_id
+    WHERE g2.game_mode IS NULL OR g2.game_mode != 'CHERRY'
+  )
 `;
 
-type Scope = "non_arena" | "arena";
+// Mode filter clause used in every list/aggregation query. @modes is bound to
+// a JSON array of mode codes; an empty array means "no filter, all modes".
+const MODE_FILTER = `(
+  json_array_length(@modes) = 0
+  OR g.game_mode IN (SELECT value FROM json_each(@modes))
+)`;
 
-// Mode filter for queries that touch participants. Arena scope additionally
-// restricts to known players so randos don't leak into Arena aggregations.
-const participantModeFilter = (scope: Scope) =>
-  scope === "arena"
-    ? `${ARENA_FILTER} AND ${PLAYER_KEY} IN (${KNOWN_PLAYERS_SUBQUERY})`
-    : NON_ARENA_FILTER;
-
-// Game-level filter (no player constraint). Used for listing matches.
-const gameModeFilter = (scope: Scope) =>
-  scope === "arena" ? ARENA_FILTER : NON_ARENA_FILTER;
+const modesBinding = (modes: string[] | undefined) =>
+  JSON.stringify(modes ?? []);
 
 export type PlayerSummaryRow = {
   player_key: string;
@@ -64,10 +56,11 @@ export type PlayerSummaryRow = {
   vision_score: number;
 };
 
-export function listPlayers(scope: Scope = "non_arena"): PlayerSummaryRow[] {
+export function listPlayers(modes?: string[]): PlayerSummaryRow[] {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         ${PLAYER_KEY}                                       AS player_key,
         ${PLAYER_DISPLAY}                                   AS display_name,
@@ -86,21 +79,24 @@ export function listPlayers(scope: Scope = "non_arena"): PlayerSummaryRow[] {
         SUM(p.vision_score)                                 AS vision_score
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE ${PLAYER_KEY} IS NOT NULL AND ${participantModeFilter(scope)}
+      WHERE ${PLAYER_KEY} IS NOT NULL
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       ORDER BY games DESC, wins DESC
     `
     )
-    .all() as PlayerSummaryRow[];
+    .all({ modes: modesBinding(modes) }) as PlayerSummaryRow[];
 }
 
 export function getPlayerSummary(
   identifier: string,
-  scope: Scope = "non_arena"
+  modes?: string[]
 ): PlayerSummaryRow | undefined {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         ${PLAYER_KEY}                                       AS player_key,
         ${PLAYER_DISPLAY}                                   AS display_name,
@@ -120,21 +116,22 @@ export function getPlayerSummary(
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
       WHERE (p.puuid = @id OR p.riot_id_game_name = @id OR p.summoner_name = @id)
-        AND ${participantModeFilter(scope)}
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       LIMIT 1
     `
     )
-    .get({ id: identifier }) as PlayerSummaryRow | undefined;
+    .get({ id: identifier, modes: modesBinding(modes) }) as
+    | PlayerSummaryRow
+    | undefined;
 }
 
-export function getPlayerByChampion(
-  identifier: string,
-  scope: Scope = "non_arena"
-) {
+export function getPlayerByChampion(identifier: string, modes?: string[]) {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         p.champion_name                         AS champion_name,
         COUNT(*)                                AS games,
@@ -150,12 +147,13 @@ export function getPlayerByChampion(
       JOIN games g ON g.match_id = p.match_id
       WHERE (p.puuid = @id OR p.riot_id_game_name = @id OR p.summoner_name = @id)
         AND p.champion_name IS NOT NULL
-        AND ${participantModeFilter(scope)}
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY p.champion_name
       ORDER BY games DESC, wins DESC
     `
     )
-    .all({ id: identifier });
+    .all({ id: identifier, modes: modesBinding(modes) });
 }
 
 export type ChampionSummaryRow = {
@@ -171,10 +169,11 @@ export type ChampionSummaryRow = {
   cs: number;
 };
 
-export function listChampions(scope: Scope = "non_arena"): ChampionSummaryRow[] {
+export function listChampions(modes?: string[]): ChampionSummaryRow[] {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         p.champion_name                         AS champion_name,
         COUNT(*)                                AS games,
@@ -188,21 +187,24 @@ export function listChampions(scope: Scope = "non_arena"): ChampionSummaryRow[] 
         SUM(p.total_minions_killed + p.neutral_minions_killed) AS cs
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE p.champion_name IS NOT NULL AND ${participantModeFilter(scope)}
+      WHERE p.champion_name IS NOT NULL
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY p.champion_name
       ORDER BY games DESC, wins DESC
     `
     )
-    .all() as ChampionSummaryRow[];
+    .all({ modes: modesBinding(modes) }) as ChampionSummaryRow[];
 }
 
 export function getChampionSummary(
   championName: string,
-  scope: Scope = "non_arena"
+  modes?: string[]
 ): ChampionSummaryRow | undefined {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         p.champion_name                         AS champion_name,
         COUNT(*)                                AS games,
@@ -216,20 +218,22 @@ export function getChampionSummary(
         SUM(p.total_minions_killed + p.neutral_minions_killed) AS cs
       FROM participants p
       JOIN games g ON g.match_id = p.match_id
-      WHERE p.champion_name = @champion AND ${participantModeFilter(scope)}
+      WHERE p.champion_name = @champion
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY p.champion_name
     `
     )
-    .get({ champion: championName }) as ChampionSummaryRow | undefined;
+    .get({ champion: championName, modes: modesBinding(modes) }) as
+    | ChampionSummaryRow
+    | undefined;
 }
 
-export function getChampionByPlayer(
-  championName: string,
-  scope: Scope = "non_arena"
-) {
+export function getChampionByPlayer(championName: string, modes?: string[]) {
   return db
     .prepare(
       `
+      ${KNOWN_PLAYERS_CTE}
       SELECT
         ${PLAYER_KEY}                           AS player_key,
         ${PLAYER_DISPLAY}                       AS display_name,
@@ -244,12 +248,13 @@ export function getChampionByPlayer(
       JOIN games g ON g.match_id = p.match_id
       WHERE p.champion_name = @champion
         AND ${PLAYER_KEY} IS NOT NULL
-        AND ${participantModeFilter(scope)}
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+        AND ${MODE_FILTER}
       GROUP BY ${PLAYER_KEY}, ${PLAYER_DISPLAY}
       ORDER BY games DESC, wins DESC
     `
     )
-    .all({ champion: championName });
+    .all({ champion: championName, modes: modesBinding(modes) });
 }
 
 // Returns the original POST body for a successfully-parsed match so the UI
@@ -292,16 +297,26 @@ export function getMatch(matchId: string) {
   return { game, participants };
 }
 
-export function listRecentGames(limit = 50, scope: Scope = "non_arena") {
+export function listRecentGames(limit = 50, modes?: string[]) {
   return db
     .prepare(
       `
       SELECT match_id, game_creation, game_duration, game_mode, game_version, ingested_at
       FROM games g
-      WHERE ${gameModeFilter(scope)}
+      WHERE ${MODE_FILTER}
       ORDER BY COALESCE(game_creation, ingested_at) DESC
-      LIMIT ?
+      LIMIT @limit
     `
     )
-    .all(limit);
+    .all({ modes: modesBinding(modes), limit });
+}
+
+export function listAvailableModes(): string[] {
+  return (
+    db
+      .prepare(
+        `SELECT DISTINCT game_mode FROM games WHERE game_mode IS NOT NULL ORDER BY game_mode`
+      )
+      .all() as { game_mode: string }[]
+  ).map((r) => r.game_mode);
 }

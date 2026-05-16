@@ -4,6 +4,12 @@ async function getJSON<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// Build a `?modes=A,B,C` suffix. Empty array means "no filter, show all".
+function modesQuery(modes: string[] | undefined): string {
+  if (!modes || modes.length === 0) return "";
+  return `?modes=${modes.map(encodeURIComponent).join(",")}`;
+}
+
 export type PlayerSummary = {
   player_key: string;
   display_name: string;
@@ -69,29 +75,7 @@ export type RecentGame = {
   ingested_at: number;
 };
 
-export type MatchParticipant = {
-  puuid: string | null;
-  riot_id_game_name: string | null;
-  riot_id_tagline: string | null;
-  summoner_name: string | null;
-  team_id: number | null;
-  champion_name: string | null;
-  team_position: string | null;
-  win: number;
-  kills: number;
-  deaths: number;
-  assists: number;
-  total_damage_dealt_to_champions: number;
-  total_damage_taken: number;
-  gold_earned: number;
-  total_minions_killed: number;
-  neutral_minions_killed: number;
-  vision_score: number;
-};
-
-// Live-client raw payload — fields we render in the match detail UI. We type
-// loosely (any) for the deep parts since match-v5 payloads would have a
-// different shape and we want the renderer to be defensive.
+// Live-client raw payload — fields we render in the match detail UI.
 export type RawLiveItem = {
   itemID: number;
   displayName: string;
@@ -108,7 +92,13 @@ export type RawLivePlayer = {
   level?: number;
   isDead?: boolean;
   position?: string;
-  scores?: { kills?: number; deaths?: number; assists?: number; creepScore?: number; wardScore?: number };
+  scores?: {
+    kills?: number;
+    deaths?: number;
+    assists?: number;
+    creepScore?: number;
+    wardScore?: number;
+  };
   items?: RawLiveItem[];
   summonerSpells?: {
     summonerSpellOne?: { displayName?: string };
@@ -137,6 +127,26 @@ export type RawLivePayload = {
   events?: { Events?: RawLiveEvent[] };
 };
 
+export type MatchParticipant = {
+  puuid: string | null;
+  riot_id_game_name: string | null;
+  riot_id_tagline: string | null;
+  summoner_name: string | null;
+  team_id: number | null;
+  champion_name: string | null;
+  team_position: string | null;
+  win: number;
+  kills: number;
+  deaths: number;
+  assists: number;
+  total_damage_dealt_to_champions: number;
+  total_damage_taken: number;
+  gold_earned: number;
+  total_minions_killed: number;
+  neutral_minions_killed: number;
+  vision_score: number;
+};
+
 export type MatchDetail = {
   game: {
     match_id: string;
@@ -152,25 +162,25 @@ export type MatchDetail = {
 };
 
 export const api = {
-  players: () => getJSON<{ players: PlayerSummary[] }>("/api/players"),
-  player: (id: string) =>
+  modes: () => getJSON<{ modes: string[] }>("/api/modes"),
+  players: (modes?: string[]) =>
+    getJSON<{ players: PlayerSummary[] }>(`/api/players${modesQuery(modes)}`),
+  player: (id: string, modes?: string[]) =>
     getJSON<{ summary: PlayerSummary; byChampion: PlayerByChampionRow[] }>(
-      `/api/players/${encodeURIComponent(id)}`
+      `/api/players/${encodeURIComponent(id)}${modesQuery(modes)}`
     ),
-  champions: () => getJSON<{ champions: ChampionSummary[] }>("/api/champions"),
-  champion: (name: string) =>
+  champions: (modes?: string[]) =>
+    getJSON<{ champions: ChampionSummary[] }>(
+      `/api/champions${modesQuery(modes)}`
+    ),
+  champion: (name: string, modes?: string[]) =>
     getJSON<{ summary: ChampionSummary; byPlayer: ChampionByPlayerRow[] }>(
-      `/api/champions/${encodeURIComponent(name)}`
+      `/api/champions/${encodeURIComponent(name)}${modesQuery(modes)}`
     ),
-  games: () => getJSON<{ games: RecentGame[] }>("/api/games"),
+  games: (modes?: string[]) =>
+    getJSON<{ games: RecentGame[] }>(`/api/games${modesQuery(modes)}`),
   match: (id: string) =>
     getJSON<MatchDetail>(`/api/games/${encodeURIComponent(id)}`),
   matchRaw: (id: string) =>
     getJSON<RawLivePayload>(`/api/games/${encodeURIComponent(id)}/raw`),
-  arena: {
-    games: () => getJSON<{ games: RecentGame[] }>("/api/arena/games"),
-    players: () => getJSON<{ players: PlayerSummary[] }>("/api/arena/players"),
-    champions: () =>
-      getJSON<{ champions: ChampionSummary[] }>("/api/arena/champions"),
-  },
 };

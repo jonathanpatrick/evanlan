@@ -4,6 +4,7 @@ import { api, type ChampionSummary, type PlayerSummary } from "../api.js";
 import { KDA_TOOLTIP, SortableHeader, TableFilter } from "../components.js";
 import { fmt, kdaValue } from "../format.js";
 import { useAsync, useTable } from "../hooks.js";
+import { useSelectedModes } from "../mode-filter.js";
 
 // Floor for "ranked" lists. One 100%-WR game would otherwise dominate; with a
 // small friend group two games is a reasonable signal floor.
@@ -27,8 +28,9 @@ const CHAMPION_SORT_KEYS = {
 };
 
 export function Home() {
-  const players = useAsync(() => api.players(), []);
-  const champions = useAsync(() => api.champions(), []);
+  const modes = useSelectedModes();
+  const players = useAsync(() => api.players(modes), [modes]);
+  const champions = useAsync(() => api.champions(modes), [modes]);
 
   // Floor before sort/filter so the leaderboards stay meaningful.
   const eligiblePlayers = useMemo(

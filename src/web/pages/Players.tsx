@@ -4,6 +4,7 @@ import { api, type PlayerSummary } from "../api.js";
 import { KDA_TOOLTIP, SortableHeader, TableFilter } from "../components.js";
 import { fmt, kdaValue } from "../format.js";
 import { useAsync, useTable } from "../hooks.js";
+import { useSelectedModes } from "../mode-filter.js";
 
 const SORT_KEYS = {
   name: (p: PlayerSummary) => (p.display_name ?? "").toLowerCase(),
@@ -15,7 +16,8 @@ const SORT_KEYS = {
 };
 
 export function Players() {
-  const { data, error, loading } = useAsync(() => api.players(), []);
+  const modes = useSelectedModes();
+  const { data, error, loading } = useAsync(() => api.players(modes), [modes]);
   const filterFields = useMemo(
     () => (p: PlayerSummary) => [p.display_name ?? ""],
     []
