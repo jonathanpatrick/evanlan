@@ -30,7 +30,12 @@ export function Champions() {
 
   return (
     <>
-      <h1>Champions</h1>
+      <h1>
+        Champions{" "}
+        <small className="muted" style={{ fontWeight: 400 }}>
+          (<Link to="/champions/v2">visual view</Link>)
+        </small>
+      </h1>
       {loading && <p className="muted">Loading…</p>}
       {error && <p className="loss">Error: {error.message}</p>}
       {data && data.champions.length === 0 && (

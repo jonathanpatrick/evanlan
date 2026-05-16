@@ -1,4 +1,6 @@
 import type { FastifyInstance } from "fastify";
+import { getChampionMeta, refreshChampionMeta } from "../champion-meta.js";
+import { env } from "../env.js";
 import {
   getMatch,
   getMatchRaw,
@@ -33,5 +35,33 @@ export async function gameRoutes(app: FastifyInstance) {
   // mode-filter checkboxes in the UI; the UI maps these to friendly labels.
   app.get("/api/modes", async () => {
     return { modes: listAvailableModes() };
+  });
+
+  // Champion portrait metadata (name + imageUrl). Cached in the DB; first
+  // call fetches from Riot's Data Dragon and persists.
+  app.get("/api/champion-meta", async (req, reply) => {
+    try {
+      return await getChampionMeta();
+    } catch (err) {
+      req.log.error({ err }, "champion-meta fetch failed");
+      return reply
+        .code(503)
+        .send({ error: "could not fetch champion metadata" });
+    }
+  });
+
+  // Manual refresh endpoint (token-protected) — useful after a new patch.
+  app.post("/admin/refresh-champion-meta", async (req, reply) => {
+    const provided = req.headers["x-ingest-token"];
+    if (!env.ingestToken || provided !== env.ingestToken) {
+      return reply.code(401).send({ error: "missing or invalid ingest token" });
+    }
+    try {
+      const version = await refreshChampionMeta();
+      return { ok: true, version };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return reply.code(502).send({ error: message });
+    }
   });
 }

@@ -55,3 +55,13 @@ CREATE INDEX IF NOT EXISTS idx_participants_match    ON participants(match_id);
 CREATE INDEX IF NOT EXISTS idx_participants_puuid    ON participants(puuid);
 CREATE INDEX IF NOT EXISTS idx_participants_champ    ON participants(champion_name);
 CREATE INDEX IF NOT EXISTS idx_participants_riot_id  ON participants(riot_id_game_name);
+
+-- Champion portrait metadata sourced from Riot's Data Dragon CDN. Cached
+-- locally so we're not hammering DDragon on every dashboard render. Filled
+-- lazily on first /api/champion-meta request (or refreshed manually).
+CREATE TABLE IF NOT EXISTS champion_meta (
+  name           TEXT PRIMARY KEY,
+  image_filename TEXT NOT NULL,
+  version        TEXT NOT NULL,
+  updated_at     INTEGER NOT NULL
+);

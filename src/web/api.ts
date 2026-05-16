@@ -165,8 +165,14 @@ export type MatchDetail = {
   participants: MatchParticipant[];
 };
 
+export type ChampionMeta = { name: string; imageUrl: string };
+
 export const api = {
   modes: () => getJSON<{ modes: string[] }>("/api/modes"),
+  championMeta: () =>
+    getJSON<{ version: string | null; champions: ChampionMeta[] }>(
+      "/api/champion-meta"
+    ),
   players: (modes?: string[]) =>
     getJSON<{ players: PlayerSummary[] }>(`/api/players${modesQuery(modes)}`),
   player: (id: string, modes?: string[]) =>
