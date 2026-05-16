@@ -419,6 +419,66 @@ export function listRecentGames(limit = 50, modes?: string[]) {
     .all({ modes: modesBinding(modes), limit });
 }
 
+// Pairwise synergy: every (player_a, player_b) combo across LAN games,
+// counting how often they were teamed vs opposing each other. Used by the
+// synergy matrix + best-partnerships leaderboard. Mode filter respected;
+// note that CHERRY games put everyone on team 100, so they'll skew the
+// "together" counts — users can deselect Arena to get a clean read.
+export type SynergyRow = {
+  player_a: string;
+  player_b: string;
+  display_a: string;
+  display_b: string;
+  games_together: number;
+  wins_together: number;
+  games_versus: number;
+  wins_a_versus_b: number;
+};
+
+export function getSynergyMatrix(modes?: string[]): SynergyRow[] {
+  return db
+    .prepare(
+      `
+      WITH known AS (
+        SELECT DISTINCT COALESCE(
+          NULLIF(p2.puuid, ''),
+          NULLIF(p2.riot_id_game_name || '#' || COALESCE(p2.riot_id_tagline, ''), '#'),
+          p2.summoner_name
+        ) AS pk
+        FROM participants p2
+        JOIN games g2 ON g2.match_id = p2.match_id
+        WHERE g2.game_mode IS NULL OR g2.game_mode != 'CHERRY'
+      ),
+      pp AS (
+        SELECT
+          ${PLAYER_KEY}     AS player_key,
+          ${PLAYER_DISPLAY} AS display_name,
+          p.match_id        AS match_id,
+          p.team_id         AS team_id,
+          p.win             AS win
+        FROM participants p
+        JOIN games g ON g.match_id = p.match_id
+        WHERE ${PLAYER_KEY} IS NOT NULL
+          AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+          AND ${MODE_FILTER}
+      )
+      SELECT
+        pa.player_key      AS player_a,
+        pb.player_key      AS player_b,
+        MAX(pa.display_name) AS display_a,
+        MAX(pb.display_name) AS display_b,
+        SUM(CASE WHEN pa.team_id = pb.team_id THEN 1 ELSE 0 END) AS games_together,
+        SUM(CASE WHEN pa.team_id = pb.team_id AND pa.win = 1 THEN 1 ELSE 0 END) AS wins_together,
+        SUM(CASE WHEN pa.team_id != pb.team_id THEN 1 ELSE 0 END) AS games_versus,
+        SUM(CASE WHEN pa.team_id != pb.team_id AND pa.win = 1 THEN 1 ELSE 0 END) AS wins_a_versus_b
+      FROM pp pa
+      JOIN pp pb ON pb.match_id = pa.match_id AND pa.player_key < pb.player_key
+      GROUP BY pa.player_key, pb.player_key
+    `
+    )
+    .all({ modes: modesBinding(modes) }) as SynergyRow[];
+}
+
 // Per-game stats for the N most recent games, restricted to LAN players.
 // Frontend pivots this into one series per player for a line chart.
 export type TrendPoint = {

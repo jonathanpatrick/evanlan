@@ -4,6 +4,7 @@ import { env } from "../env.js";
 import {
   getMatch,
   getMatchRaw,
+  getSynergyMatrix,
   getTrends,
   listAvailableModes,
   listRecentGames,
@@ -46,6 +47,14 @@ export async function gameRoutes(app: FastifyInstance) {
       const modes = parseModes(req.query.modes);
       const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
       return { points: getTrends(modes, isNaN(limit) ? 20 : limit) };
+    }
+  );
+
+  // Pairwise synergy + rivalry stats for every LAN player pair.
+  app.get<{ Querystring: { modes?: string } }>(
+    "/api/synergy",
+    async (req) => {
+      return { pairs: getSynergyMatrix(parseModes(req.query.modes)) };
     }
   );
 

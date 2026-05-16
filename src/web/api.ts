@@ -167,6 +167,17 @@ export type MatchDetail = {
 
 export type ChampionMeta = { name: string; imageUrl: string };
 
+export type SynergyPair = {
+  player_a: string;
+  player_b: string;
+  display_a: string;
+  display_b: string;
+  games_together: number;
+  wins_together: number;
+  games_versus: number;
+  wins_a_versus_b: number;
+};
+
 export type TrendPoint = {
   player_key: string;
   display_name: string;
@@ -186,6 +197,8 @@ export const api = {
     getJSON<{ version: string | null; champions: ChampionMeta[] }>(
       "/api/champion-meta"
     ),
+  synergy: (modes?: string[]) =>
+    getJSON<{ pairs: SynergyPair[] }>(`/api/synergy${modesQuery(modes)}`),
   trends: (modes?: string[], limit?: number) => {
     const parts: string[] = [];
     if (modes && modes.length > 0)

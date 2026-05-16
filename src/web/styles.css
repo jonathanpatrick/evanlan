@@ -299,6 +299,41 @@ h1 { margin-top: 0; }
   display: inline-block;
 }
 
+.synergy-scroll {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+table.synergy-matrix {
+  border-collapse: collapse;
+  background: var(--panel);
+  font-size: 0.78rem;
+}
+table.synergy-matrix th.synergy-corner {
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  white-space: nowrap;
+}
+table.synergy-matrix td.synergy-cell {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5rem;
+}
+table.synergy-matrix td.synergy-diagonal {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  text-align: center;
+  background: var(--bg);
+  color: var(--muted);
+}
+.synergy-line { line-height: 1.2; }
+.synergy-together { font-weight: 600; }
+.synergy-versus { font-size: 0.72rem; }
+
 .table-controls {
   display: flex;
   gap: 0.5rem;
