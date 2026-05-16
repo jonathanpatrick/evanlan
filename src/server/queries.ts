@@ -419,6 +419,64 @@ export function listRecentGames(limit = 50, modes?: string[]) {
     .all({ modes: modesBinding(modes), limit });
 }
 
+// Per-game stats for the N most recent games, restricted to LAN players.
+// Frontend pivots this into one series per player for a line chart.
+export type TrendPoint = {
+  player_key: string;
+  display_name: string;
+  match_id: string;
+  game_creation: number | null;
+  ingested_at: number;
+  game_mode: string | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  win: number;
+};
+
+export function getTrends(modes?: string[], limit = 20): TrendPoint[] {
+  return db
+    .prepare(
+      `
+      WITH known AS (
+        SELECT DISTINCT COALESCE(
+          NULLIF(p2.puuid, ''),
+          NULLIF(p2.riot_id_game_name || '#' || COALESCE(p2.riot_id_tagline, ''), '#'),
+          p2.summoner_name
+        ) AS pk
+        FROM participants p2
+        JOIN games g2 ON g2.match_id = p2.match_id
+        WHERE g2.game_mode IS NULL OR g2.game_mode != 'CHERRY'
+      ),
+      recent AS (
+        SELECT g.match_id
+        FROM games g
+        WHERE ${MODE_FILTER}
+        ORDER BY COALESCE(g.game_creation, g.ingested_at) DESC
+        LIMIT @limit
+      )
+      SELECT
+        ${PLAYER_KEY}     AS player_key,
+        ${PLAYER_DISPLAY} AS display_name,
+        g.match_id        AS match_id,
+        g.game_creation   AS game_creation,
+        g.ingested_at     AS ingested_at,
+        g.game_mode       AS game_mode,
+        p.kills           AS kills,
+        p.deaths          AS deaths,
+        p.assists         AS assists,
+        p.win             AS win
+      FROM participants p
+      JOIN games g ON g.match_id = p.match_id
+      WHERE p.match_id IN (SELECT match_id FROM recent)
+        AND ${PLAYER_KEY} IS NOT NULL
+        AND ${PLAYER_KEY} IN (SELECT pk FROM known)
+      ORDER BY COALESCE(g.game_creation, g.ingested_at) ASC, g.match_id
+    `
+    )
+    .all({ modes: modesBinding(modes), limit }) as TrendPoint[];
+}
+
 export function listAvailableModes(): string[] {
   return (
     db

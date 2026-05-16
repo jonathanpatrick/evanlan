@@ -7,6 +7,7 @@ import { Home } from "./pages/Home.js";
 import { Match } from "./pages/Match.js";
 import { Player } from "./pages/Player.js";
 import { Players } from "./pages/Players.js";
+import { Trends } from "./pages/Trends.js";
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
           <Link to="/" className="brand">League Dashboard</Link>
           <Link to="/players">Players</Link>
           <Link to="/champions">Champions</Link>
+          <Link to="/trends">Trends</Link>
         </div>
       </header>
       <div className="container">
@@ -30,6 +32,7 @@ export function App() {
           <Route path="/champions/v2" element={<ChampionsV2 />} />
           <Route path="/champions/:name" element={<Champion />} />
           <Route path="/matches/:id" element={<Match />} />
+          <Route path="/trends" element={<Trends />} />
         </Routes>
       </main>
     </ModeFilterProvider>

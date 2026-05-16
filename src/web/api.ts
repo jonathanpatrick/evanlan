@@ -167,12 +167,33 @@ export type MatchDetail = {
 
 export type ChampionMeta = { name: string; imageUrl: string };
 
+export type TrendPoint = {
+  player_key: string;
+  display_name: string;
+  match_id: string;
+  game_creation: number | null;
+  ingested_at: number;
+  game_mode: string | null;
+  kills: number;
+  deaths: number;
+  assists: number;
+  win: number;
+};
+
 export const api = {
   modes: () => getJSON<{ modes: string[] }>("/api/modes"),
   championMeta: () =>
     getJSON<{ version: string | null; champions: ChampionMeta[] }>(
       "/api/champion-meta"
     ),
+  trends: (modes?: string[], limit?: number) => {
+    const parts: string[] = [];
+    if (modes && modes.length > 0)
+      parts.push(`modes=${modes.map(encodeURIComponent).join(",")}`);
+    if (limit) parts.push(`limit=${limit}`);
+    const q = parts.length > 0 ? `?${parts.join("&")}` : "";
+    return getJSON<{ points: TrendPoint[] }>(`/api/trends${q}`);
+  },
   players: (modes?: string[]) =>
     getJSON<{ players: PlayerSummary[] }>(`/api/players${modesQuery(modes)}`),
   player: (id: string, modes?: string[]) =>

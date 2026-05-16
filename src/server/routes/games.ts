@@ -4,6 +4,7 @@ import { env } from "../env.js";
 import {
   getMatch,
   getMatchRaw,
+  getTrends,
   listAvailableModes,
   listRecentGames,
 } from "../queries.js";
@@ -36,6 +37,17 @@ export async function gameRoutes(app: FastifyInstance) {
   app.get("/api/modes", async () => {
     return { modes: listAvailableModes() };
   });
+
+  // Per-game stats for the most recent N games, restricted to LAN players.
+  // Drives the Trends line chart.
+  app.get<{ Querystring: { modes?: string; limit?: string } }>(
+    "/api/trends",
+    async (req) => {
+      const modes = parseModes(req.query.modes);
+      const limit = req.query.limit ? parseInt(req.query.limit, 10) : 20;
+      return { points: getTrends(modes, isNaN(limit) ? 20 : limit) };
+    }
+  );
 
   // Champion portrait metadata (name + imageUrl). Cached in the DB; first
   // call fetches from Riot's Data Dragon and persists.
