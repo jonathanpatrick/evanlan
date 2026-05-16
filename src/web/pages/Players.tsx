@@ -13,6 +13,7 @@ const SORT_KEYS = {
   winPct: (p: PlayerSummary) => (p.games ? p.wins / p.games : 0),
   kda: (p: PlayerSummary) => kdaValue(p.kills, p.deaths, p.assists),
   damage: (p: PlayerSummary) => p.damage_dealt / Math.max(p.games, 1),
+  nemesis: (p: PlayerSummary) => p.top_nemesis?.times ?? 0,
 };
 
 export function Players() {
@@ -95,6 +96,14 @@ export function Players() {
                   onClick={t.toggleSort}
                   className="numeric"
                 />
+                <SortableHeader
+                  id="nemesis"
+                  label="Top Nemesis"
+                  sortId={t.sortId}
+                  sortDir={t.sortDir}
+                  onClick={t.toggleSort}
+                  title="Player who has killed this person the most across the selected modes"
+                />
               </tr>
             </thead>
             <tbody>
@@ -124,6 +133,20 @@ export function Players() {
                   </td>
                   <td className="numeric">
                     {fmt.int(p.damage_dealt / Math.max(p.games, 1))}
+                  </td>
+                  <td>
+                    {p.top_nemesis ? (
+                      <>
+                        <Link
+                          to={`/players/${encodeURIComponent(p.top_nemesis.killer)}`}
+                        >
+                          {p.top_nemesis.killer}
+                        </Link>{" "}
+                        <span className="muted">×{p.top_nemesis.times}</span>
+                      </>
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

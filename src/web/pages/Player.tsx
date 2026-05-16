@@ -1,6 +1,11 @@
 import { useMemo, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
-import { api, type PlayerByChampionRow } from "../api.js";
+import {
+  api,
+  type NemesisRow,
+  type PlayerByChampionRow,
+  type VictimRow,
+} from "../api.js";
 import { KDA_TOOLTIP, SortableHeader, TableFilter } from "../components.js";
 import { fmt, kdaValue } from "../format.js";
 import { useAsync, useTable } from "../hooks.js";
@@ -36,7 +41,7 @@ export function Player() {
   if (error) return <p className="loss">Error: {error.message}</p>;
   if (!data) return null;
 
-  const { summary } = data;
+  const { summary, topNemeses, topVictims } = data;
 
   return (
     <>
@@ -71,7 +76,12 @@ export function Player() {
         <Stat label="Total vision" value={fmt.int(summary.vision_score)} />
       </div>
 
-      <h2>By champion</h2>
+      <div className="card-grid" style={{ marginTop: "1.5rem" }}>
+        <NemesisCard title="Top Nemeses" subtitle="Who's killed them most" rows={topNemeses} />
+        <VictimCard title="Top Victims" subtitle="Who they kill most" rows={topVictims} />
+      </div>
+
+      <h2 style={{ marginTop: "2rem" }}>By champion</h2>
       {data.byChampion.length === 0 ? (
         <p className="muted">No champions yet.</p>
       ) : (
@@ -138,5 +148,87 @@ function Stat({
       <div className="label">{label}</div>
       <div className="value">{value}</div>
     </div>
+  );
+}
+
+function NemesisCard({
+  title,
+  subtitle,
+  rows,
+}: {
+  title: string;
+  subtitle: string;
+  rows: NemesisRow[];
+}) {
+  return (
+    <section className="card">
+      <h2>{title}</h2>
+      <p className="muted card-subtitle">{subtitle}</p>
+      {rows.length === 0 ? (
+        <p className="muted">No data yet.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Nemesis</th>
+              <th className="numeric">Kills on you</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.nemesis}>
+                <td>
+                  <Link to={`/players/${encodeURIComponent(r.nemesis)}`}>
+                    {r.nemesis}
+                  </Link>
+                </td>
+                <td className="numeric">{fmt.int(r.times)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function VictimCard({
+  title,
+  subtitle,
+  rows,
+}: {
+  title: string;
+  subtitle: string;
+  rows: VictimRow[];
+}) {
+  return (
+    <section className="card">
+      <h2>{title}</h2>
+      <p className="muted card-subtitle">{subtitle}</p>
+      {rows.length === 0 ? (
+        <p className="muted">No data yet.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Victim</th>
+              <th className="numeric">Your kills</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.victim}>
+                <td>
+                  <Link to={`/players/${encodeURIComponent(r.victim)}`}>
+                    {r.victim}
+                  </Link>
+                </td>
+                <td className="numeric">{fmt.int(r.times)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }

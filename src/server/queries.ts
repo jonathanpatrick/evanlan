@@ -257,6 +257,114 @@ export function getChampionByPlayer(championName: string, modes?: string[]) {
     .all({ champion: championName, modes: modesBinding(modes) });
 }
 
+// ---- nemesis stats --------------------------------------------------------
+// Computed on-demand from raw_payloads by walking each game's ChampionKill
+// events. The events use riot_id_game_name as the player identifier (no
+// puuid in there). Both killer and victim are restricted to known LAN names
+// so randos can't appear as a top nemesis.
+
+export type NemesisRow = { nemesis: string; times: number };
+export type VictimRow = { victim: string; times: number };
+
+const KNOWN_BY_NAME_CTE = `
+  known_names AS (
+    SELECT DISTINCT p2.riot_id_game_name AS name
+    FROM participants p2
+    JOIN games g2 ON g2.match_id = p2.match_id
+    WHERE p2.riot_id_game_name IS NOT NULL
+      AND (g2.game_mode IS NULL OR g2.game_mode != 'CHERRY')
+  )
+`;
+
+const KILL_EVENTS_CTE = `
+  kill_events AS (
+    SELECT
+      json_extract(event.value, '$.KillerName') AS killer,
+      json_extract(event.value, '$.VictimName') AS victim
+    FROM raw_payloads rp
+    JOIN games g ON g.match_id = rp.match_id
+    JOIN json_each(json_extract(rp.body_json, '$.events.Events')) AS event
+    WHERE rp.parse_status = 'ok'
+      AND json_extract(event.value, '$.EventName') = 'ChampionKill'
+      AND ${MODE_FILTER}
+  )
+`;
+
+// One row per (victim, killer) pair where both are LAN players: their #1
+// killer + times. Used to attach a top_nemesis field to every player on the
+// listings.
+export function listTopNemesisPerPlayer(
+  modes?: string[]
+): { victim: string; killer: string; times: number }[] {
+  return db
+    .prepare(
+      `
+      WITH ${KNOWN_BY_NAME_CTE},
+      ${KILL_EVENTS_CTE},
+      counts AS (
+        SELECT victim, killer, COUNT(*) AS times,
+               ROW_NUMBER() OVER (PARTITION BY victim ORDER BY COUNT(*) DESC) AS rn
+        FROM kill_events
+        WHERE victim IN (SELECT name FROM known_names)
+          AND killer IN (SELECT name FROM known_names)
+        GROUP BY victim, killer
+      )
+      SELECT victim, killer, times
+      FROM counts
+      WHERE rn = 1
+    `
+    )
+    .all({ modes: modesBinding(modes) }) as {
+    victim: string;
+    killer: string;
+    times: number;
+  }[];
+}
+
+export function getTopNemeses(
+  victim: string,
+  modes?: string[],
+  limit = 5
+): NemesisRow[] {
+  return db
+    .prepare(
+      `
+      WITH ${KNOWN_BY_NAME_CTE},
+      ${KILL_EVENTS_CTE}
+      SELECT killer AS nemesis, COUNT(*) AS times
+      FROM kill_events
+      WHERE victim = @victim
+        AND killer IN (SELECT name FROM known_names)
+      GROUP BY killer
+      ORDER BY times DESC
+      LIMIT @limit
+    `
+    )
+    .all({ victim, limit, modes: modesBinding(modes) }) as NemesisRow[];
+}
+
+export function getTopVictims(
+  killer: string,
+  modes?: string[],
+  limit = 5
+): VictimRow[] {
+  return db
+    .prepare(
+      `
+      WITH ${KNOWN_BY_NAME_CTE},
+      ${KILL_EVENTS_CTE}
+      SELECT victim, COUNT(*) AS times
+      FROM kill_events
+      WHERE killer = @killer
+        AND victim IN (SELECT name FROM known_names)
+      GROUP BY victim
+      ORDER BY times DESC
+      LIMIT @limit
+    `
+    )
+    .all({ killer, limit, modes: modesBinding(modes) }) as VictimRow[];
+}
+
 // Returns the original POST body for a successfully-parsed match so the UI
 // can render fields we don't normalize into columns (items, runes, summoner
 // spells, events timeline, active player stats, etc.).

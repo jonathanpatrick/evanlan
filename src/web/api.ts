@@ -26,7 +26,11 @@ export type PlayerSummary = {
   gold_earned: number;
   cs: number;
   vision_score: number;
+  top_nemesis?: { killer: string; times: number } | null;
 };
+
+export type NemesisRow = { nemesis: string; times: number };
+export type VictimRow = { victim: string; times: number };
 
 export type ChampionSummary = {
   champion_name: string;
@@ -166,9 +170,12 @@ export const api = {
   players: (modes?: string[]) =>
     getJSON<{ players: PlayerSummary[] }>(`/api/players${modesQuery(modes)}`),
   player: (id: string, modes?: string[]) =>
-    getJSON<{ summary: PlayerSummary; byChampion: PlayerByChampionRow[] }>(
-      `/api/players/${encodeURIComponent(id)}${modesQuery(modes)}`
-    ),
+    getJSON<{
+      summary: PlayerSummary;
+      byChampion: PlayerByChampionRow[];
+      topNemeses: NemesisRow[];
+      topVictims: VictimRow[];
+    }>(`/api/players/${encodeURIComponent(id)}${modesQuery(modes)}`),
   champions: (modes?: string[]) =>
     getJSON<{ champions: ChampionSummary[] }>(
       `/api/champions${modesQuery(modes)}`
