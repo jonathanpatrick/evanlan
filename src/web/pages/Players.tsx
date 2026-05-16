@@ -12,7 +12,7 @@ const SORT_KEYS = {
   record: (p: PlayerSummary) => p.wins,
   winPct: (p: PlayerSummary) => (p.games ? p.wins / p.games : 0),
   kda: (p: PlayerSummary) => kdaValue(p.kills, p.deaths, p.assists),
-  damage: (p: PlayerSummary) => p.damage_dealt / Math.max(p.games, 1),
+  cs: (p: PlayerSummary) => p.cs / Math.max(p.games, 1),
   nemesis: (p: PlayerSummary) => p.top_nemesis?.times ?? 0,
 };
 
@@ -89,12 +89,13 @@ export function Players() {
                   title={KDA_TOOLTIP}
                 />
                 <SortableHeader
-                  id="damage"
-                  label="DMG / game"
+                  id="cs"
+                  label="CS / game"
                   sortId={t.sortId}
                   sortDir={t.sortDir}
                   onClick={t.toggleSort}
                   className="numeric"
+                  title="Average CS (minions + neutrals) per game. Live-client API doesn't expose damage totals, so CS replaces what would normally be DMG/game."
                 />
                 <SortableHeader
                   id="nemesis"
@@ -132,7 +133,7 @@ export function Players() {
                     {fmt.kda(p.kills, p.deaths, p.assists)}
                   </td>
                   <td className="numeric">
-                    {fmt.int(p.damage_dealt / Math.max(p.games, 1))}
+                    {fmt.int(p.cs / Math.max(p.games, 1))}
                   </td>
                   <td>
                     {p.top_nemesis ? (

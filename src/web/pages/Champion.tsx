@@ -59,7 +59,6 @@ export function Champion() {
           value={fmt.kda(summary.kills, summary.deaths, summary.assists)}
           title={KDA_TOOLTIP}
         />
-        <Stat label="Total damage" value={fmt.int(summary.damage_dealt)} />
         <Stat label="Total CS" value={fmt.int(summary.cs)} />
       </div>
 
