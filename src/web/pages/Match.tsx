@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   api,
@@ -7,14 +7,22 @@ import {
   type RawLivePayload,
   type RawLivePlayer,
 } from "../api.js";
-import { KDA_TOOLTIP } from "../components.js";
-import { fmt, gameModeLabel } from "../format.js";
-import { useAsync } from "../hooks.js";
+import { KDA_TOOLTIP, SortableHeader, TableFilter } from "../components.js";
+import { fmt, gameModeLabel, kdaValue } from "../format.js";
+import { useAsync, useTable } from "../hooks.js";
+
+const PARTICIPANT_SORT_KEYS = {
+  name: (p: MatchParticipant) => (p.riot_id_game_name ?? p.summoner_name ?? "").toLowerCase(),
+  champion: (p: MatchParticipant) => (p.champion_name ?? "").toLowerCase(),
+  kda: (p: MatchParticipant) => kdaValue(p.kills, p.deaths, p.assists),
+  cs: (p: MatchParticipant) => p.total_minions_killed + p.neutral_minions_killed,
+  vision: (p: MatchParticipant) => p.vision_score,
+  damage: (p: MatchParticipant) => p.total_damage_dealt_to_champions,
+};
 
 export function Match() {
   const { id = "" } = useParams();
   const normalized = useAsync(() => api.match(id), [id]);
-  // Raw is optional — render the page even if it 404s.
   const raw = useAsync(
     () => api.matchRaw(id).catch(() => null as RawLivePayload | null),
     [id]
@@ -34,14 +42,6 @@ export function Match() {
   }
   const teamEntries = [...teams.entries()].sort(([a], [b]) => a - b);
 
-  const rawPlayers = raw.data?.allPlayers ?? [];
-  const findRaw = (p: MatchParticipant): RawLivePlayer | undefined =>
-    rawPlayers.find(
-      (rp) =>
-        (p.riot_id_game_name && rp.riotIdGameName === p.riot_id_game_name) ||
-        (p.summoner_name && rp.summonerName === p.summoner_name)
-    );
-
   const events = raw.data?.events?.Events ?? [];
 
   return (
@@ -53,88 +53,14 @@ export function Match() {
         {fmt.date(game.game_creation ?? game.ingested_at)}
       </p>
 
-      {teamEntries.map(([teamId, members]) => {
-        const teamWin = members[0]?.win === 1;
-        const label =
-          teamId === 100
-            ? "Blue (Order)"
-            : teamId === 200
-            ? "Red (Chaos)"
-            : `Team ${teamId}`;
-        return (
-          <section key={teamId} style={{ marginBottom: "1.5rem" }}>
-            <h2>
-              {label}{" "}
-              <span className={teamWin ? "win" : "loss"}>
-                {teamWin ? "— Victory" : "— Defeat"}
-              </span>
-            </h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Player</th>
-                  <th>Champion</th>
-                  <th className="numeric">Lvl</th>
-                  <th className="numeric" title={KDA_TOOLTIP}>K / D / A</th>
-                  <th className="numeric">CS</th>
-                  <th className="numeric">Vision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {members.map((p) => {
-                  const playerKey =
-                    p.puuid ?? p.riot_id_game_name ?? p.summoner_name ?? "?";
-                  const display =
-                    p.riot_id_game_name ?? p.summoner_name ?? p.puuid ?? "?";
-                  const rp = findRaw(p);
-                  return (
-                    <Fragment key={playerKey + (p.champion_name ?? "")}>
-                      <tr>
-                        <td>
-                          <Link to={`/players/${encodeURIComponent(playerKey)}`}>
-                            {display}
-                          </Link>
-                          {p.riot_id_tagline && (
-                            <span className="muted"> #{p.riot_id_tagline}</span>
-                          )}
-                        </td>
-                        <td>
-                          {p.champion_name ? (
-                            <Link
-                              to={`/champions/${encodeURIComponent(p.champion_name)}`}
-                            >
-                              {p.champion_name}
-                            </Link>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td className="numeric">{rp?.level ?? "—"}</td>
-                        <td className="numeric" title={KDA_TOOLTIP}>
-                          {fmt.kda(p.kills, p.deaths, p.assists)}
-                        </td>
-                        <td className="numeric">
-                          {fmt.int(
-                            p.total_minions_killed + p.neutral_minions_killed
-                          )}
-                        </td>
-                        <td className="numeric">{fmt.int(p.vision_score)}</td>
-                      </tr>
-                      {rp && (
-                        <tr className="detail-row">
-                          <td colSpan={6} className="detail-cell">
-                            <PlayerBuild raw={rp} />
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
-        );
-      })}
+      {teamEntries.map(([teamId, members]) => (
+        <TeamTable
+          key={teamId}
+          teamId={teamId}
+          members={members}
+          raw={raw.data ?? null}
+        />
+      ))}
 
       {events.length > 0 && (
         <section>
@@ -143,6 +69,123 @@ export function Match() {
         </section>
       )}
     </>
+  );
+}
+
+function TeamTable({
+  teamId,
+  members,
+  raw,
+}: {
+  teamId: number;
+  members: MatchParticipant[];
+  raw: RawLivePayload | null;
+}) {
+  const teamWin = members[0]?.win === 1;
+  const label =
+    teamId === 100
+      ? "Blue (Order)"
+      : teamId === 200
+      ? "Red (Chaos)"
+      : `Team ${teamId}`;
+
+  const rawPlayers = raw?.allPlayers ?? [];
+  const findRaw = (p: MatchParticipant): RawLivePlayer | undefined =>
+    rawPlayers.find(
+      (rp) =>
+        (p.riot_id_game_name && rp.riotIdGameName === p.riot_id_game_name) ||
+        (p.summoner_name && rp.summonerName === p.summoner_name)
+    );
+
+  const filterFields = useMemo(
+    () => (p: MatchParticipant) =>
+      [
+        p.riot_id_game_name ?? "",
+        p.summoner_name ?? "",
+        p.champion_name ?? "",
+      ],
+    []
+  );
+  const t = useTable(members, PARTICIPANT_SORT_KEYS, {
+    defaultSortId: "kda",
+    defaultDir: "desc",
+    filterFields,
+  });
+
+  return (
+    <section style={{ marginBottom: "1.5rem" }}>
+      <h2>
+        {label}{" "}
+        <span className={teamWin ? "win" : "loss"}>
+          {teamWin ? "— Victory" : "— Defeat"}
+        </span>
+      </h2>
+      <TableFilter
+        value={t.filter}
+        onChange={t.setFilter}
+        count={t.rows.length}
+        placeholder="Filter team…"
+      />
+      <table>
+        <thead>
+          <tr>
+            <SortableHeader id="name" label="Player" sortId={t.sortId} sortDir={t.sortDir} onClick={t.toggleSort} />
+            <SortableHeader id="champion" label="Champion" sortId={t.sortId} sortDir={t.sortDir} onClick={t.toggleSort} />
+            <th className="numeric">Lvl</th>
+            <SortableHeader id="kda" label="K / D / A" sortId={t.sortId} sortDir={t.sortDir} onClick={t.toggleSort} className="numeric" title={KDA_TOOLTIP} />
+            <SortableHeader id="cs" label="CS" sortId={t.sortId} sortDir={t.sortDir} onClick={t.toggleSort} className="numeric" />
+            <SortableHeader id="vision" label="Vision" sortId={t.sortId} sortDir={t.sortDir} onClick={t.toggleSort} className="numeric" />
+          </tr>
+        </thead>
+        <tbody>
+          {t.rows.map((p) => {
+            const playerKey =
+              p.puuid ?? p.riot_id_game_name ?? p.summoner_name ?? "?";
+            const display =
+              p.riot_id_game_name ?? p.summoner_name ?? p.puuid ?? "?";
+            const rp = findRaw(p);
+            return (
+              <Fragment key={playerKey + (p.champion_name ?? "")}>
+                <tr>
+                  <td>
+                    <Link to={`/players/${encodeURIComponent(playerKey)}`}>
+                      {display}
+                    </Link>
+                    {p.riot_id_tagline && (
+                      <span className="muted"> #{p.riot_id_tagline}</span>
+                    )}
+                  </td>
+                  <td>
+                    {p.champion_name ? (
+                      <Link to={`/champions/${encodeURIComponent(p.champion_name)}`}>
+                        {p.champion_name}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="numeric">{rp?.level ?? "—"}</td>
+                  <td className="numeric" title={KDA_TOOLTIP}>
+                    {fmt.kda(p.kills, p.deaths, p.assists)}
+                  </td>
+                  <td className="numeric">
+                    {fmt.int(p.total_minions_killed + p.neutral_minions_killed)}
+                  </td>
+                  <td className="numeric">{fmt.int(p.vision_score)}</td>
+                </tr>
+                {rp && (
+                  <tr className="detail-row">
+                    <td colSpan={6} className="detail-cell">
+                      <PlayerBuild raw={rp} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -158,8 +201,7 @@ function PlayerBuild({ raw }: { raw: RawLivePlayer }) {
     <div className="build-info">
       {spells.length > 0 && (
         <span className="build-section">
-          <span className="build-label">Spells:</span>{" "}
-          {spells.join(" + ")}
+          <span className="build-label">Spells:</span> {spells.join(" + ")}
         </span>
       )}
       {items.length > 0 ? (
@@ -179,8 +221,6 @@ function PlayerBuild({ raw }: { raw: RawLivePlayer }) {
   );
 }
 
-// Filter the live-client event stream to events worth showing in the UI.
-// MinionsSpawning / InhibRespawned / level-up noise is dropped.
 const SHOWN_EVENTS = new Set([
   "FirstBlood",
   "ChampionKill",
@@ -197,25 +237,48 @@ const SHOWN_EVENTS = new Set([
 ]);
 
 function EventTimeline({ events }: { events: RawLiveEvent[] }) {
-  const items = events
-    .filter((e) => SHOWN_EVENTS.has(e.EventName))
-    .map((e) => ({ time: e.EventTime, text: formatEvent(e), type: e.EventName }))
-    .filter((e): e is { time: number; text: string; type: string } => !!e.text)
-    .sort((a, b) => a.time - b.time);
-
-  if (items.length === 0) {
-    return <p className="muted">No events recorded.</p>;
-  }
+  const [filter, setFilter] = useState("");
+  const items = useMemo(() => {
+    const formatted = events
+      .filter((e) => SHOWN_EVENTS.has(e.EventName))
+      .map((e) => ({
+        time: e.EventTime,
+        text: formatEvent(e),
+        type: e.EventName,
+      }))
+      .filter(
+        (e): e is { time: number; text: string; type: string } => !!e.text
+      )
+      .sort((a, b) => a.time - b.time);
+    const q = filter.trim().toLowerCase();
+    if (!q) return formatted;
+    return formatted.filter(
+      (e) =>
+        e.text.toLowerCase().includes(q) || e.type.toLowerCase().includes(q)
+    );
+  }, [events, filter]);
 
   return (
-    <ul className="events-timeline">
-      {items.map((e, i) => (
-        <li key={i} className={`event event-${e.type}`}>
-          <span className="event-time">{eventTime(e.time)}</span>
-          <span className="event-text">{e.text}</span>
-        </li>
-      ))}
-    </ul>
+    <>
+      <TableFilter
+        value={filter}
+        onChange={setFilter}
+        count={items.length}
+        placeholder="Filter events (player, type, structure…)"
+      />
+      {items.length === 0 ? (
+        <p className="muted">No events match.</p>
+      ) : (
+        <ul className="events-timeline">
+          {items.map((e, i) => (
+            <li key={i} className={`event event-${e.type}`}>
+              <span className="event-time">{eventTime(e.time)}</span>
+              <span className="event-text">{e.text}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
   );
 }
 
@@ -227,7 +290,6 @@ function eventTime(s: number): string {
 
 function structureName(raw: string | undefined): string {
   if (!raw) return "structure";
-  // Turret_TChaos_L1_P3_... → "Chaos turret (lane 1, pos 3)"
   const m = raw.match(/^(Turret|Inhib)_T(Order|Chaos|1|2)_(L\d+)_(P\d+)/);
   if (!m) return raw;
   const [, kind, side] = m;
